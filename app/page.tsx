@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, DollarSign, MessageSquare, TrendingUp, Search, Plus, Pencil, Trash2, Eye, MapPin, Mail, Phone, Calendar, ShoppingBag, AlertTriangle, LayoutDashboard, ShoppingCart, CreditCard, Globe } from "lucide-react";
+import { Users, DollarSign, MessageSquare, TrendingUp, Search, Plus, Pencil, Trash2, Eye, MapPin, Mail, Phone, Calendar, ShoppingBag, AlertTriangle, ShoppingCart, CreditCard, Globe } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -9,13 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Navbar } from "@/components/ui/navbar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, BarChart, XAxis, YAxis, Pie, PieChart, Cell, Area, AreaChart, Line, LineChart, CartesianGrid, Radar, RadarChart, PolarAngleAxis, PolarGrid } from "recharts";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
+
 import { DateRangeProvider, useDateRange } from "@/contexts/date-range-context";
 
 interface Customer {
@@ -193,9 +194,11 @@ function CustomerApp() {
     Promise.all([
       fetch(`/api/stats?${params}`).then((r) => r.json()),
       fetch("/api/customers").then((r) => r.json()),
-    ]).then(([statsData, customersData]) => {
+      fetch(`/api/dashboard?${params}`).then((r) => r.json()),
+    ]).then(([statsData, customersData, dashData]) => {
       setStats(statsData);
       setCustomers(Array.isArray(customersData) ? customersData : []);
+      setDashboardData(dashData);
     });
   };
 
@@ -310,7 +313,8 @@ function CustomerApp() {
   const handleAddTransaction = async () => {
     if (!selectedCustomer) return;
     setSaving(true);
-    await fetch("/api/transactions", {
+    const totalAmount = transactionForm.quantity * transactionForm.unitPrice;
+    const res = await fetch("/api/transactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...transactionForm, customerId: selectedCustomer.CUSTOMER_ID }),
@@ -318,15 +322,22 @@ function CustomerApp() {
     setSaving(false);
     setAddTransactionOpen(false);
     setTransactionForm({ productName: "", category: "Electronics", quantity: 1, unitPrice: 0, paymentMethod: "Credit Card" });
-    const txns = await fetch(`/api/transactions?customerId=${selectedCustomer.CUSTOMER_ID}`).then((r) => r.json());
-    setTransactions(txns);
-    refreshData();
+    if (res.ok) {
+      const txns = await fetch(`/api/transactions?customerId=${selectedCustomer.CUSTOMER_ID}`).then((r) => r.json());
+      setTransactions(txns);
+      setSelectedCustomer({
+        ...selectedCustomer,
+        TOTAL_ORDERS: selectedCustomer.TOTAL_ORDERS + 1,
+        TOTAL_LIFETIME_VALUE: selectedCustomer.TOTAL_LIFETIME_VALUE + totalAmount,
+      });
+      refreshData();
+    }
   };
 
   const handleAddInteraction = async () => {
     if (!selectedCustomer) return;
     setSaving(true);
-    await fetch("/api/interactions", {
+    const res = await fetch("/api/interactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...interactionForm, customerId: selectedCustomer.CUSTOMER_ID }),
@@ -334,9 +345,11 @@ function CustomerApp() {
     setSaving(false);
     setAddInteractionOpen(false);
     setInteractionForm({ type: "Support", channel: "Email", sentiment: "Neutral", resolutionTime: 30 });
-    const ints = await fetch(`/api/interactions?customerId=${selectedCustomer.CUSTOMER_ID}`).then((r) => r.json());
-    setInteractions(ints);
-    refreshData();
+    if (res.ok) {
+      const ints = await fetch(`/api/interactions?customerId=${selectedCustomer.CUSTOMER_ID}`).then((r) => r.json());
+      setInteractions(ints);
+      refreshData();
+    }
   };
 
   const openEditCustomer = (customer: Customer, e?: React.MouseEvent) => {
@@ -404,30 +417,16 @@ function CustomerApp() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <Navbar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        dateRange={dateRange}
+        onDateChange={setDateRange}
+        isDateLoading={dateLoading}
+      />
       <div className="max-w-7xl mx-auto p-8 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold text-slate-900">Customer 360</h1>
-            <p className="text-slate-500 mt-1">Unified customer data platform</p>
-          </div>
-        </div>
-
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2 h-12 p-1 bg-slate-100 border border-slate-200 shadow-sm">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2 text-base font-medium data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-500 rounded-md transition-all">
-              <LayoutDashboard className="h-5 w-5" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="customers" className="flex items-center gap-2 text-base font-medium data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-500 rounded-md transition-all">
-              <Users className="h-5 w-5" />
-              Customers
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="dashboard" className="mt-6 space-y-6">
-            <div className="flex justify-end">
-              <DateRangePicker date={dateRange} onDateChange={setDateRange} isLoading={dateLoading} />
-            </div>
+          <TabsContent value="dashboard" className="mt-0 space-y-6">
             {dashLoading ? (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -638,7 +637,7 @@ function CustomerApp() {
             )}
           </TabsContent>
 
-          <TabsContent value="customers" className="mt-6 space-y-6">
+          <TabsContent value="customers" className="mt-0 space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex gap-3">
                 <div className="relative">
@@ -970,7 +969,7 @@ function CustomerApp() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddCustomerOpen(false)}>Cancel</Button>
-              <Button onClick={handleAddCustomer} disabled={saving}>{saving ? "Saving..." : "Add Customer"}</Button>
+              <Button onClick={handleAddCustomer} disabled={saving} className="bg-blue-400 hover:bg-blue-500 text-white">{saving ? "Saving..." : "Add Customer"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

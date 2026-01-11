@@ -41,8 +41,8 @@ export async function POST(request: Request) {
     const newProdId = maxProdResult[0]?.MAX_ID || 1;
 
     await query(`
-      INSERT INTO CUSTOMER_360_DB.ANALYTICS.PRODUCTS (PRODUCT_ID, PRODUCT_NAME, CATEGORY, UNIT_PRICE, STOCK_QUANTITY)
-      VALUES (${newProdId}, '${productName}', '${category}', ${unitPrice}, 100)
+      INSERT INTO CUSTOMER_360_DB.ANALYTICS.PRODUCTS (PRODUCT_ID, PRODUCT_NAME, CATEGORY, PRICE)
+      VALUES (${newProdId}, '${productName}', '${category}', ${unitPrice})
     `);
 
     const totalAmount = quantity * unitPrice;
