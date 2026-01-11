@@ -1,0 +1,25 @@
+spec:
+  containers:
+  - name: customer360
+    image: /CUSTOMER_360_DB/ANALYTICS/CUSTOMER_360_REPO/customer360:latest
+    env:
+      HOSTNAME: "0.0.0.0"
+      PORT: "8080"
+      NODE_ENV: production
+      SNOWFLAKE_WAREHOUSE: HLEVEL1
+      SNOWFLAKE_DATABASE: CUSTOMER_360_DB
+      SNOWFLAKE_SCHEMA: ANALYTICS
+    resources:
+      requests:
+        memory: 1Gi
+        cpu: 500m
+      limits:
+        memory: 2Gi
+        cpu: 1000m
+    readinessProbe:
+      port: 8080
+      path: /
+  endpoints:
+  - name: app
+    port: 8080
+    public: true
